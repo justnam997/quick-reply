@@ -47,9 +47,13 @@ pub fn draw(frame: &mut Frame, app: &App) {
     } else {
         Line::from(vec![
             Span::styled("quick-reply", theme::ACTIVE_BORDER),
+            Span::styled(" | ", theme::HELP_TEXT),
+            Span::styled(&app.sync_status, theme::HELP_TEXT),
             Span::styled(" | Press ", theme::HELP_TEXT),
+            Span::styled("S", theme::ACTIVE_BORDER),
+            Span::styled(" settings ", theme::HELP_TEXT),
             Span::styled("?", theme::ACTIVE_BORDER),
-            Span::styled(" for help", theme::HELP_TEXT),
+            Span::styled(" help", theme::HELP_TEXT),
         ])
     };
 

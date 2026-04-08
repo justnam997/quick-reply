@@ -21,6 +21,7 @@ use tokio::sync::mpsc;
 
 use app::{AiSuggestion, App, InputMode, Panel};
 use config::Config;
+use sync::SyncDepth;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -61,18 +62,30 @@ async fn main() -> anyhow::Result<()> {
         app.platform_status[i] = manager.status(name);
     }
 
-    // Load conversations for the first connected platform
-    if let Some(platform) = app.platform_names.first() {
-        if let Ok(convs) = manager.fetch_conversations(platform).await {
-            if !convs.is_empty() {
-                // Archive conversations
-                for conv in &convs {
-                    archive.archive_conversation(conv).await.ok();
-                }
-                app.conversations = convs;
+    // Initialize sync engine
+    let sync_engine = sync::SyncEngine::new(memory::archive::ConversationArchive::new(
+        db.connection().clone(),
+    ));
+
+    // Run initial sync for each connected platform (in background)
+    for name in &app.platform_names.clone() {
+        if manager.status(name) == app::ConnectionStatus::Connected {
+            let depth = get_sync_depth_for_platform(&app.config, name);
+            if let Err(e) = sync_engine.initial_sync(&manager, name, depth).await {
+                tracing::error!("Sync failed for {name}: {e}");
+                app.notifications
+                    .push(format!("Sync failed for {name}: {e}"));
             }
         }
     }
+
+    // Load conversations from archive after sync
+    if let Some(platform) = app.platform_names.first() {
+        if let Ok(convs) = manager.fetch_conversations(platform).await {
+            app.conversations = convs;
+        }
+    }
+    app.sync_status = "Synced".to_string();
 
     // Set up notification channel
     let mut notification_rx = manager.take_notification_receiver();
@@ -183,6 +196,12 @@ async fn handle_normal_input(
     claude: &ai::claude::ClaudeCli,
     suggestion_tx: &mpsc::Sender<String>,
 ) {
+    // Settings view has its own input handling
+    if app.view == app::AppView::Settings {
+        handle_settings_input(app, code);
+        return;
+    }
+
     match code {
         KeyCode::Char('q') => app.quit(),
         KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => app.quit(),
@@ -336,6 +355,14 @@ async fn handle_normal_input(
             app.suggestion = None;
         }
 
+        // 'S' - toggle settings view
+        KeyCode::Char('S') => {
+            app.view = match app.view {
+                app::AppView::Main => app::AppView::Settings,
+                app::AppView::Settings => app::AppView::Main,
+            };
+        }
+
         _ => {}
     }
 }
@@ -415,4 +442,116 @@ fn handle_search_input(app: &mut App, code: KeyCode) {
         }
         _ => {}
     }
+}
+
+fn handle_settings_input(app: &mut App, code: KeyCode) {
+    match code {
+        KeyCode::Esc => {
+            app.view = app::AppView::Main;
+        }
+        KeyCode::Tab => {
+            app.settings_section = match app.settings_section {
+                app::SettingsSection::Sync => app::SettingsSection::Ai,
+                app::SettingsSection::Ai => app::SettingsSection::General,
+                app::SettingsSection::General => app::SettingsSection::Sync,
+            };
+            app.settings_selected = 0;
+        }
+        KeyCode::Char('j') | KeyCode::Down => {
+            if app.settings_section == app::SettingsSection::Sync
+                && app.settings_selected < app.platform_names.len().saturating_sub(1)
+            {
+                app.settings_selected += 1;
+            }
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            if app.settings_section == app::SettingsSection::Sync {
+                app.settings_selected = app.settings_selected.saturating_sub(1);
+            }
+        }
+        KeyCode::Enter => {
+            if app.settings_section == app::SettingsSection::Sync {
+                // Cycle sync depth for selected platform
+                if let Some(name) = app.platform_names.get(app.settings_selected).cloned() {
+                    cycle_platform_sync_depth(&mut app.config, &name);
+                    app.config.save().ok();
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn cycle_platform_sync_depth(config: &mut config::Config, platform: &str) {
+    let cycle = |depth: &str| -> String {
+        match depth {
+            "full" => "recent".to_string(),
+            "recent" => "minimal".to_string(),
+            "minimal" => "off".to_string(),
+            "off" => "full".to_string(),
+            _ => "recent".to_string(),
+        }
+    };
+
+    match platform {
+        "Telegram" => {
+            if let Some(ref mut c) = config.platforms.telegram {
+                c.sync_depth = cycle(&c.sync_depth.clone());
+            }
+        }
+        "iMessage" => {
+            if let Some(ref mut c) = config.platforms.imessage {
+                c.sync_depth = cycle(&c.sync_depth.clone());
+            }
+        }
+        "WhatsApp" => {
+            if let Some(ref mut c) = config.platforms.whatsapp {
+                c.sync_depth = cycle(&c.sync_depth.clone());
+            }
+        }
+        "Slack" => {
+            if let Some(ref mut c) = config.platforms.slack {
+                c.sync_depth = cycle(&c.sync_depth.clone());
+            }
+        }
+        "Messenger" => {
+            if let Some(ref mut c) = config.platforms.messenger {
+                c.sync_depth = cycle(&c.sync_depth.clone());
+            }
+        }
+        _ => {}
+    }
+}
+
+fn get_sync_depth_for_platform(config: &config::Config, platform: &str) -> SyncDepth {
+    let (depth_str, recent_count) = match platform {
+        "Telegram" => config
+            .platforms
+            .telegram
+            .as_ref()
+            .map(|c| (c.sync_depth.as_str(), c.sync_recent_count)),
+        "iMessage" => config
+            .platforms
+            .imessage
+            .as_ref()
+            .map(|c| (c.sync_depth.as_str(), c.sync_recent_count)),
+        "WhatsApp" => config
+            .platforms
+            .whatsapp
+            .as_ref()
+            .map(|c| (c.sync_depth.as_str(), c.sync_recent_count)),
+        "Slack" => config
+            .platforms
+            .slack
+            .as_ref()
+            .map(|c| (c.sync_depth.as_str(), c.sync_recent_count)),
+        "Messenger" => config
+            .platforms
+            .messenger
+            .as_ref()
+            .map(|c| (c.sync_depth.as_str(), c.sync_recent_count)),
+        _ => None,
+    }
+    .unwrap_or(("recent", 50));
+    SyncDepth::from_config(depth_str, recent_count)
 }

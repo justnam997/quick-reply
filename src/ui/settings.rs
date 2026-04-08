@@ -89,8 +89,8 @@ fn render_sync_section(frame: &mut Frame, app: &App, area: Rect) {
             };
 
             ListItem::new(Line::from(vec![
-                Span::styled(format!("  {:<12}", name), style),
-                Span::styled(format!("[{:<8}]", depth), Style::default().fg(Color::Yellow)),
+                Span::styled(format!("  {name:<12}"), style),
+                Span::styled(format!("[{depth:<8}]"), Style::default().fg(Color::Yellow)),
                 Span::raw("  "),
                 Span::styled(
                     app.sync_status.clone(),
@@ -119,7 +119,7 @@ fn render_sync_section(frame: &mut Frame, app: &App, area: Rect) {
         .iter()
         .map(|name| {
             ListItem::new(Line::from(vec![
-                Span::styled(format!("  {:<12}", name), theme::NORMAL_ITEM),
+                Span::styled(format!("  {name:<12}"), theme::NORMAL_ITEM),
                 Span::styled(
                     "0/0 embedded | 0 profiles",
                     Style::default().fg(Color::DarkGray),

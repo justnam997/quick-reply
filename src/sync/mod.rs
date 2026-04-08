@@ -29,6 +29,7 @@ impl SyncDepth {
         }
     }
 
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         match self {
             SyncDepth::Full => "full",
@@ -38,6 +39,7 @@ impl SyncDepth {
         }
     }
 
+    #[allow(dead_code)]
     pub fn next(&self) -> SyncDepth {
         match self {
             SyncDepth::Full => SyncDepth::Recent(50),
@@ -128,11 +130,7 @@ impl SyncEngine {
                         }
                     }
                     Err(e) => {
-                        tracing::warn!(
-                            "Failed to sync messages for {}/{}: {e}",
-                            platform,
-                            conv.id
-                        );
+                        tracing::warn!("Failed to sync messages for {}/{}: {e}", platform, conv.id);
                     }
                 }
             }
@@ -157,10 +155,12 @@ impl SyncEngine {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn progress(&self) -> HashMap<String, PlatformSyncProgress> {
         self.progress.lock().await.clone()
     }
 
+    #[allow(dead_code)]
     pub async fn set_error(&self, platform: &str, error: String) {
         let mut progress = self.progress.lock().await;
         if let Some(p) = progress.get_mut(platform) {

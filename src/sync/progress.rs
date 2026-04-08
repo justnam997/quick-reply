@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum SyncPhase {
     Idle,
     SyncingConversations,
@@ -12,6 +13,7 @@ pub enum SyncPhase {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PlatformSyncProgress {
     pub phase: SyncPhase,
     pub conversations_total: usize,
@@ -43,6 +45,7 @@ impl PlatformSyncProgress {
         }
     }
 
+    #[allow(dead_code)]
     pub fn status_line(&self) -> String {
         match &self.phase {
             SyncPhase::Idle => "Idle".to_string(),
@@ -90,6 +93,7 @@ impl PlatformSyncProgress {
         }
     }
 
+    #[allow(dead_code)]
     pub fn memory_status_line(&self) -> String {
         format!(
             "{}/{} embedded | {} profiles",
