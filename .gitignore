@@ -1,0 +1,20 @@
+# Cargo
+/target
+
+# Runtime data
+/data
+*.session
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.omc/
+.env
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

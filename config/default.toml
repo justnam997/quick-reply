@@ -1,0 +1,10 @@
+[general]
+tick_rate_ms = 250
+
+[ai]
+claude_binary = "claude"
+suggestion_timeout_secs = 30
+
+[memory]
+recent_messages_count = 20
+search_results_count = 5
