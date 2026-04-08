@@ -2,6 +2,19 @@ use crate::config::Config;
 use crate::models::{Conversation, Message};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AppView {
+    Main,
+    Settings,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SettingsSection {
+    Sync,
+    Ai,
+    General,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Panel {
     Platforms,
     Conversations,
@@ -38,6 +51,10 @@ pub struct App {
     pub notifications: Vec<String>,
     pub show_help: bool,
     pub config: Config,
+    pub view: AppView,
+    pub settings_section: SettingsSection,
+    pub settings_selected: usize,
+    pub sync_status: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -119,6 +136,10 @@ impl App {
             notifications: Vec::new(),
             show_help: false,
             config,
+            view: AppView::Main,
+            settings_section: SettingsSection::Sync,
+            settings_selected: 0,
+            sync_status: "Starting...".to_string(),
         }
     }
 
