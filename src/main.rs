@@ -6,6 +6,7 @@ mod memory;
 mod models;
 mod platform;
 mod storage;
+mod sync;
 mod ui;
 
 use std::time::Duration;
