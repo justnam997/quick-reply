@@ -1,7 +1,7 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub general: GeneralConfig,
@@ -13,7 +13,7 @@ pub struct Config {
     pub memory: MemoryConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GeneralConfig {
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
@@ -21,7 +21,7 @@ pub struct GeneralConfig {
     pub tick_rate_ms: u64,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct PlatformConfigs {
     #[serde(default)]
     pub telegram: Option<TelegramConfig>,
@@ -35,37 +35,67 @@ pub struct PlatformConfigs {
     pub messenger: Option<MessengerConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TelegramConfig {
     pub api_id: i32,
     pub api_hash: String,
     pub phone: String,
+    #[serde(default = "default_sync_depth")]
+    pub sync_depth: String,
+    #[serde(default = "default_sync_recent_count")]
+    pub sync_recent_count: usize,
+    #[serde(default = "default_build_memory")]
+    pub build_memory: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IMessageConfig {
     #[serde(default = "default_imessage_db")]
     pub db_path: PathBuf,
+    #[serde(default = "default_sync_depth")]
+    pub sync_depth: String,
+    #[serde(default = "default_sync_recent_count")]
+    pub sync_recent_count: usize,
+    #[serde(default = "default_build_memory")]
+    pub build_memory: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WhatsAppConfig {
     #[serde(default = "default_bridge_port")]
     pub bridge_port: u16,
+    #[serde(default = "default_sync_depth")]
+    pub sync_depth: String,
+    #[serde(default = "default_sync_recent_count")]
+    pub sync_recent_count: usize,
+    #[serde(default = "default_build_memory")]
+    pub build_memory: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SlackConfig {
     pub user_token: String,
+    #[serde(default = "default_sync_depth")]
+    pub sync_depth: String,
+    #[serde(default = "default_sync_recent_count")]
+    pub sync_recent_count: usize,
+    #[serde(default = "default_build_memory")]
+    pub build_memory: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MessengerConfig {
     #[serde(default = "default_messenger_bridge_port")]
     pub bridge_port: u16,
+    #[serde(default = "default_sync_depth")]
+    pub sync_depth: String,
+    #[serde(default = "default_sync_recent_count")]
+    pub sync_recent_count: usize,
+    #[serde(default = "default_build_memory")]
+    pub build_memory: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AiConfig {
     #[serde(default = "default_claude_binary")]
     pub claude_binary: String,
@@ -73,7 +103,7 @@ pub struct AiConfig {
     pub suggestion_timeout_secs: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct MemoryConfig {
     #[serde(default = "default_recent_messages")]
     #[allow(dead_code)]
@@ -94,6 +124,18 @@ impl Config {
         } else {
             Ok(Self::default())
         }
+    }
+
+    pub fn save(&self) -> crate::error::Result<()> {
+        let path = config_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self).map_err(|e| {
+            crate::error::QuickReplyError::Config(format!("Config serialization failed: {e}"))
+        })?;
+        std::fs::write(&path, content)?;
+        Ok(())
     }
 }
 
@@ -125,7 +167,7 @@ impl Default for MemoryConfig {
     }
 }
 
-fn config_path() -> PathBuf {
+pub(crate) fn config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("quick-reply")
@@ -177,4 +219,16 @@ fn default_profile_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join("quick-reply")
         .join("profiles")
+}
+
+fn default_sync_depth() -> String {
+    "recent".to_string()
+}
+
+fn default_sync_recent_count() -> usize {
+    50
+}
+
+fn default_build_memory() -> bool {
+    true
 }
